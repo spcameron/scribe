@@ -1,6 +1,10 @@
 package ast
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/spcameron/scribe/internal/source"
+)
 
 // Inline is the marker interface implemented by all inline AST nodes.
 type Inline interface {

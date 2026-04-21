@@ -1,5 +1,7 @@
 package testkit
 
+import "github.com/spcameron/scribe/internal/html"
+
 // HTMLFragmentNode constructs an html.Fragment, normalizing nil children
 // to an empty slice for stable comparisons in tests.
 func HTMLFragmentNode(children ...html.Node) html.Fragment {

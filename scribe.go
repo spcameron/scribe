@@ -3,7 +3,10 @@ package scribe
 import (
 	"io"
 
-	"golang.org/x/net/html"
+	"github.com/spcameron/scribe/internal/codegen"
+	"github.com/spcameron/scribe/internal/html"
+	"github.com/spcameron/scribe/internal/lower"
+	"github.com/spcameron/scribe/internal/source"
 )
 
 type Document interface {

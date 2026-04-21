@@ -3,6 +3,7 @@ package testkit
 import (
 	"fmt"
 
+	"github.com/spcameron/scribe/internal/ir"
 	"github.com/spcameron/scribe/internal/source"
 )
 

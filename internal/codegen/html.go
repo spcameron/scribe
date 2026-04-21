@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spcameron/scribe/internal/ast"
+	"github.com/spcameron/scribe/internal/html"
 	"github.com/spcameron/scribe/internal/source"
 )
 

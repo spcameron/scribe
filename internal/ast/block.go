@@ -1,6 +1,10 @@
 package ast
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/spcameron/scribe/internal/source"
+)
 
 // Block is the marker interface implemented by all block-level AST nodes.
 type Block interface {
