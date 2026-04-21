@@ -1,0 +1,47 @@
+package testkit
+
+// HTMLFragmentNode constructs an html.Fragment, normalizing nil children
+// to an empty slice for stable comparisons in tests.
+func HTMLFragmentNode(children ...html.Node) html.Fragment {
+	if children == nil {
+		children = []html.Node{}
+	}
+
+	return html.Fragment{
+		Children: children,
+	}
+}
+
+func HTMLTextNode(s string) html.Text {
+	return html.Text{Value: s}
+}
+
+func HTMLRawNode(s string) html.Raw {
+	return html.Raw{Value: s}
+}
+
+func HTMLVoidNode(tag string, attr html.Attributes) html.VoidElement {
+	if attr == nil {
+		attr = html.Attributes{}
+	}
+
+	return html.VoidElement{
+		Tag:  tag,
+		Attr: attr,
+	}
+}
+
+func HTMLElementNode(tag string, attr html.Attributes, children ...html.Node) html.Element {
+	if attr == nil {
+		attr = html.Attributes{}
+	}
+	if children == nil {
+		children = []html.Node{}
+	}
+
+	return html.Element{
+		Tag:      tag,
+		Attr:     attr,
+		Children: children,
+	}
+}

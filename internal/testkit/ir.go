@@ -1,0 +1,258 @@
+package testkit
+
+import (
+	"fmt"
+
+	"github.com/spcameron/scribe/internal/source"
+)
+
+func IRDoc(blocks ...ir.Block) ir.Document {
+	return ir.Document{
+		Blocks: blocks,
+	}
+}
+
+// IRRefDef constructs a reference definition with a normalized key and
+// optional title flag for structural tests.
+func IRRefDef(key string, hasTitle bool) ir.ReferenceDefinition {
+	return ir.ReferenceDefinition{
+		FullSpan:        source.ByteSpan{},
+		LabelSpan:       source.ByteSpan{},
+		DestinationSpan: source.ByteSpan{},
+		TitleSpan:       source.ByteSpan{},
+		HasTitle:        hasTitle,
+		NormalizedKey:   key,
+	}
+}
+
+func IRBlockQuote(children ...ir.Block) ir.BlockQuote {
+	return ir.BlockQuote{
+		Span:     source.ByteSpan{},
+		Children: children,
+	}
+}
+
+func IRHeader(level int, input ...string) ir.Header {
+	return ir.Header{
+		Span:         source.ByteSpan{},
+		ContentSpan:  source.ByteSpan{},
+		ContentLines: []source.ByteSpan{},
+		Level:        level,
+	}
+}
+
+func IRThematicBreak() ir.ThematicBreak {
+	return ir.ThematicBreak{
+		Span: source.ByteSpan{},
+	}
+}
+
+func IROrderedList(tight bool, start int, items ...ir.ListItem) ir.OrderedList {
+	return ir.OrderedList{
+		Span:  source.ByteSpan{},
+		Items: items,
+		Tight: tight,
+		Start: start,
+	}
+}
+
+func IRUnorderedList(tight bool, items ...ir.ListItem) ir.UnorderedList {
+	return ir.UnorderedList{
+		Span:  source.ByteSpan{},
+		Items: items,
+		Tight: tight,
+	}
+}
+
+func IRListItem(children ...ir.Block) ir.ListItem {
+	return ir.ListItem{
+		Span:     source.ByteSpan{},
+		Children: children,
+	}
+}
+
+func IRIndentedCodeBlock(input ...string) ir.IndentedCodeBlock {
+	lines := make([]source.ByteSpan, len(input))
+
+	return ir.IndentedCodeBlock{
+		Span:  source.ByteSpan{},
+		Lines: lines,
+	}
+}
+
+func IRFencedCodeBlock(indent int, input ...string) ir.FencedCodeBlock {
+	lines := make([]source.ByteSpan, len(input))
+
+	return ir.FencedCodeBlock{
+		Span:           source.ByteSpan{},
+		OpenIndentCols: indent,
+		InfoStringSpan: source.ByteSpan{},
+		Lines:          lines,
+	}
+}
+
+func IRHTMLBlock(input ...string) ir.HTMLBlock {
+	lines := make([]source.ByteSpan, len(input))
+
+	return ir.HTMLBlock{
+		Span:  source.ByteSpan{},
+		Lines: lines,
+	}
+}
+
+func IRPara(input ...string) ir.Paragraph {
+	lines := make([]source.ByteSpan, len(input))
+
+	return ir.Paragraph{
+		Span:  source.ByteSpan{},
+		Lines: lines,
+	}
+}
+
+// NormalizeIR clears source-specific fields so IR values can be compared
+// structurally in tests.
+func NormalizeIR(doc ir.Document) ir.Document {
+	doc.Source = nil
+
+	if doc.Blocks == nil {
+		doc.Blocks = []ir.Block{}
+	}
+	doc.Blocks = NormalizeIRBlocks(doc.Blocks)
+
+	if doc.Definitions == nil {
+		doc.Definitions = map[string]ir.ReferenceDefinition{}
+	}
+	doc.Definitions = NormalizeIRDefinitions(doc.Definitions)
+
+	return doc
+}
+
+// NormalizeIRBlocks recursively clears span-bearing fields and normalizes
+// nil slices to empty slices.
+func NormalizeIRBlocks(blocks []ir.Block) []ir.Block {
+	for i := range blocks {
+		switch b := blocks[i].(type) {
+		case ir.BlockQuote:
+			b.Span = source.ByteSpan{}
+			if b.Children == nil {
+				b.Children = []ir.Block{}
+			}
+			b.Children = NormalizeIRBlocks(b.Children)
+			blocks[i] = b
+
+		case ir.Header:
+			b.Span = source.ByteSpan{}
+			b.ContentSpan = source.ByteSpan{}
+			b.ContentLines = []source.ByteSpan{}
+			blocks[i] = b
+
+		case ir.ThematicBreak:
+			b.Span = source.ByteSpan{}
+			blocks[i] = b
+
+		case ir.OrderedList:
+			b.Span = source.ByteSpan{}
+			if b.Items == nil {
+				b.Items = []ir.ListItem{}
+			}
+			for j := range b.Items {
+				item := b.Items[j]
+				item.Span = source.ByteSpan{}
+				if item.Children == nil {
+					item.Children = []ir.Block{}
+				}
+				item.Children = NormalizeIRBlocks(item.Children)
+				b.Items[j] = item
+			}
+			blocks[i] = b
+
+		case ir.UnorderedList:
+			b.Span = source.ByteSpan{}
+			if b.Items == nil {
+				b.Items = []ir.ListItem{}
+			}
+			for j := range b.Items {
+				item := b.Items[j]
+				item.Span = source.ByteSpan{}
+				if item.Children == nil {
+					item.Children = []ir.Block{}
+				}
+				item.Children = NormalizeIRBlocks(item.Children)
+				b.Items[j] = item
+			}
+			blocks[i] = b
+
+		case ir.ListItem:
+			b.Span = source.ByteSpan{}
+			if b.Children == nil {
+				b.Children = []ir.Block{}
+			}
+			b.Children = NormalizeIRBlocks(b.Children)
+			blocks[i] = b
+
+		case ir.IndentedCodeBlock:
+			b.Span = source.ByteSpan{}
+			if b.Lines == nil {
+				b.Lines = []source.ByteSpan{}
+			}
+			for j := range b.Lines {
+				b.Lines[j] = source.ByteSpan{}
+			}
+			blocks[i] = b
+
+		case ir.FencedCodeBlock:
+			b.Span = source.ByteSpan{}
+			b.InfoStringSpan = source.ByteSpan{}
+			if b.Lines == nil {
+				b.Lines = []source.ByteSpan{}
+			}
+			for j := range b.Lines {
+				b.Lines[j] = source.ByteSpan{}
+			}
+			blocks[i] = b
+
+		case ir.HTMLBlock:
+			b.Span = source.ByteSpan{}
+			if b.Lines == nil {
+				b.Lines = []source.ByteSpan{}
+			}
+			for j := range b.Lines {
+				b.Lines[j] = source.ByteSpan{}
+			}
+			blocks[i] = b
+
+		case ir.Paragraph:
+			b.Span = source.ByteSpan{}
+			if b.Lines == nil {
+				b.Lines = []source.ByteSpan{}
+			}
+			for j := range b.Lines {
+				b.Lines[j] = source.ByteSpan{}
+			}
+			blocks[i] = b
+
+		default:
+			panic(fmt.Sprintf("unhandled block type %T", b))
+		}
+	}
+
+	return blocks
+}
+
+// NormalizeIRDefinitions strips source spans and retains only the
+// semantic fields required for comparison.
+func NormalizeIRDefinitions(defs map[string]ir.ReferenceDefinition) map[string]ir.ReferenceDefinition {
+	if defs == nil {
+		return map[string]ir.ReferenceDefinition{}
+	}
+
+	out := make(map[string]ir.ReferenceDefinition, len(defs))
+	for k, def := range defs {
+		out[k] = ir.ReferenceDefinition{
+			HasTitle:      def.HasTitle,
+			NormalizedKey: def.NormalizedKey,
+		}
+	}
+
+	return out
+}
