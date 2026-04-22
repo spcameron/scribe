@@ -132,7 +132,7 @@ The compiler is organized around four representation layers:
 * `source.Source`: immutable input buffer with span utilities and line/column mapping
 * `ir.Document`: block-level intermediate representation; structural only, span-based
 * `ast.Document`: semantic representation used for code generation; still span-based
-* `markdown.Document`: target-language representation used for HTML serialization
+* `scribe.Document`: target-language representation used for HTML serialization
 
 Only the HTML layer materializes concrete output text. All earlier layers operate by preserving and transforming coordinates into the original source.
 
@@ -258,9 +258,9 @@ Code blocks are treated as literal regions and are never subject to inline parsi
 
 Two forms are supported:
 
-Indented code blocks arise from lines with at least four columns of indentation. The first four columns are removed during normalization, and any additional indentation is preserved as content.
+* Indented code blocks arise from lines with at least four columns of indentation. The first four columns are removed during normalization, and any additional indentation is preserved as content.
 
-Fenced code blocks are introduced by runs of backticks or tildes (at least three). The closing fence must use the same marker and meet or exceed the opening length. An optional info string may follow the opening fence; its first token is interpreted as a language identifier during rendering.
+* Fenced code blocks are introduced by runs of backticks or tildes (at least three). The closing fence must use the same marker and meet or exceed the opening length. An optional info string may follow the opening fence; its first token is interpreted as a language identifier during rendering.
 
 In both forms, line boundaries are preserved exactly, and the resulting content is emitted as literal text within `<pre><code>`.
 
@@ -375,27 +375,21 @@ If no matching opener is found, the delimiter remains literal. In some cases it 
 
 When a matching opener is found, the parser performs a localized rewrite:
 
-1. **Determine strength**
-   One or two delimiter characters are consumed from each side depending on run lengths.
+1. **Determine strength**: One or two delimiter characters are consumed from each side depending on run lengths.
 
-2. **Adjust delimiter runs**
-   The opener and closer item spans are shortened to reflect consumed characters. If a run is fully consumed, its item and delimiter record are removed.
+2. **Adjust delimiter runs**: The opener and closer item spans are shortened to reflect consumed characters. If a run is fully consumed, its item and delimiter record are removed.
 
-3. **Extract children**
-   All items strictly between the opener and closer are detached from the item list as a contiguous range.
+3. **Extract children**: All items strictly between the opener and closer are detached from the item list as a contiguous range.
 
-4. **Construct new item**
-   A new item is created (`Emphasis` or `Strong`) with:
+4. **Construct new item**: A new item is created (`Emphasis` or `Strong`) with:
 
    * an original span covering both delimiters
    * a live span covering only the enclosed content
    * the detached items as its children
 
-5. **Reinsert structure**
-   The new item is inserted at the opener position, preserving list order.
+5. **Reinsert structure**: The new item is inserted at the opener position, preserving list order.
 
-6. **Clean delimiter state**
-   All delimiter records between the opener and closer are removed. The parser then resumes from a stable position in the delimiter stack.
+6. **Clean delimiter state**: All delimiter records between the opener and closer are removed. The parser then resumes from a stable position in the delimiter stack.
 
 Because resolution operates directly on the item list, no index-based rewriting is required. The structure evolves through local mutations rather than global passes.
 
@@ -613,6 +607,24 @@ The design mirrors conventional compiler structure:
 * Explicit lowering
 * Target-language code generation
 
-Block constructs are parsed according to clear structural rules. Surface syntax is normalized early: distinct syntactic forms that represent the same semantic construct (e.g., ATX headers and Setext headers) are lowered into a single `Header` IR node. Downstream stages operate only on semantic structure, not original delimiter forms.
+This pipeline is not an aesthetic mimicry, but rather a constraint system.
 
-The system remains mechanically predictable and extensible while preserving precise coordinate semantics throughout.
+By fixing the source as immutable and representing all structure as spans, the parser never loses correspondence with the original input. Every transformation preserves coordinate fidelity. This makes the system mechanically inspectable: errors, diagnostics, and transformations can always be traced back to exact positions in the source.
+
+Early stages normalize surface syntax into a small set of semantic forms. Distinct Markdown constructs (e.g., ATX and Setext headers) that are visually different but semantically equivalent are unified before later stages run. Downstream passes therefore operate on meaning, not syntax. This sharply reduces complexity. Each stage has fewer cases to consider, and behavior becomes easier to reason about.
+
+Lowering is explicit rather than implicit. Inline parsing does not leak into block parsing, and rendering does not reinterpret structure. Each phase has a single responsibility and a fixed input/output contract. This separation is what allows the system to remain extensible without becoming fragile.
+
+The costs of this approach:
+
+* Some CommonMark behaviors are not reproduced if they conflict with structural clarity, particularly around newline handling and lazy continuation
+* Certain permissive or ambiguous constructs are rejected rather than heuristically interpreted
+* The implementation favors determinism over maximal compatibility
+
+The benefits of this approach:
+
+* Predictable parsing with no hidden backtracking or cnotext-sensitive surprises
+* A testable pipeline where each stage can be validated independently
+* A representation that can be reused beyond HTML generation
+
+In short, this project optimizes for correctness, traceability, and architectural clarity over strict spec fidelity or implementation minimalism.
