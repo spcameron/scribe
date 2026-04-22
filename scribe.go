@@ -3,6 +3,7 @@ package scribe
 import (
 	"io"
 
+	"github.com/spcameron/scribe/internal/block"
 	"github.com/spcameron/scribe/internal/codegen"
 	"github.com/spcameron/scribe/internal/html"
 	"github.com/spcameron/scribe/internal/lower"

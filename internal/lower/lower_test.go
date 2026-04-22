@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/spcameron/scribe/internal/ast"
+	"github.com/spcameron/scribe/internal/block"
+	"github.com/spcameron/scribe/internal/lower"
 	"github.com/spcameron/scribe/internal/source"
 	tk "github.com/spcameron/scribe/internal/testkit"
 	"github.com/spcameron/scribe/internal/testsupport/assert"
