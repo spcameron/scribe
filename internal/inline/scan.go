@@ -1,0 +1,184 @@
+package inline
+
+import "github.com/spcameron/scribe/internal/source"
+
+// Scan tokenizes the inline source covered by span.
+func Scan(src *source.Source, span source.ByteSpan) ([]Token, error) {
+	input := src.Slice(span)
+	scanner := NewScanner(input, span.Start)
+
+	tokens := []Token{}
+	for {
+		// repeatedly call Next to emit tokens
+		token, ok := scanner.Next()
+		if !ok {
+			// if EOF, append TokenEOF and break
+			anchor := source.ByteSpan{
+				Start: scanner.Base + source.BytePos(scanner.Position),
+				End:   scanner.Base + source.BytePos(scanner.Position),
+			}
+
+			tokens = append(tokens, Token{
+				Span: anchor,
+				Kind: TokenEOF,
+			})
+
+			break
+		}
+
+		tokens = append(tokens, token)
+	}
+
+	return tokens, nil
+}
+
+// Scanner tokenizes inline source relative to a source-base offset.
+type Scanner struct {
+	Input    string
+	Position int
+	Base     source.BytePos
+}
+
+// NewScanner constructs a scanner over input whose spans are anchored at base.
+func NewScanner(input string, base source.BytePos) *Scanner {
+	return &Scanner{
+		Input:    input,
+		Position: 0,
+		Base:     base,
+	}
+}
+
+func (s *Scanner) EOF() bool {
+	return s.Position >= len(s.Input)
+}
+
+// Current returns the current input byte without advancing.
+func (s *Scanner) Current() (byte, bool) {
+	if s.EOF() {
+		return 0, false
+	}
+
+	return s.Input[s.Position], true
+}
+
+// Peek returns the next input byte without advancing.
+func (s *Scanner) Peek() (byte, bool) {
+	next := s.Position + 1
+	if next >= len(s.Input) {
+		return 0, false
+	}
+
+	return s.Input[next], true
+}
+
+// Next returns the next token from the input.
+func (s *Scanner) Next() (Token, bool) {
+	if s.EOF() {
+		return Token{}, false
+	}
+
+	kind, width, ok := s.Special()
+	if ok {
+		return s.token(kind, width), true
+	}
+
+	start := s.Position
+	for !s.EOF() {
+		if _, _, ok := s.Special(); ok {
+			break
+		}
+		s.Position++
+	}
+	end := s.Position
+
+	if start == end {
+		panic("inline scanner made no progress")
+	}
+
+	return Token{
+		Span: s.span(start, end),
+		Kind: TokenText,
+	}, true
+}
+
+// Special reports whether the current byte begins a non-text token and, if
+// so, returns its kind and width.
+func (s *Scanner) Special() (TokenKind, int, bool) {
+	b, ok := s.Current()
+	if !ok {
+		return 0, 0, false
+	}
+
+	switch b {
+	case '*':
+		return TokenStarDelimiter, s.runLength(b), true
+
+	case '_':
+		return TokenUnderscoreDelimiter, s.runLength(b), true
+
+	case '`':
+		return TokenBacktick, s.runLength(b), true
+
+	case '[':
+		return TokenOpenBracket, 1, true
+
+	case ']':
+		return TokenCloseBracket, 1, true
+
+	case '(':
+		return TokenOpenParen, 1, true
+
+	case ')':
+		return TokenCloseParen, 1, true
+
+	case '<':
+		return TokenOpenAngle, 1, true
+
+	case '>':
+		return TokenCloseAngle, 1, true
+
+	case '!':
+		if next, ok := s.Peek(); ok && next == '[' {
+			return TokenImageOpenBracket, 2, true
+		}
+		return TokenBang, 1, true
+
+	case '\\':
+		return TokenBackslash, 1, true
+
+	case '\n':
+		panic("illegal newline character encountered during inline parsing")
+
+	default:
+		return 0, 0, false
+	}
+
+}
+
+func (s *Scanner) token(kind TokenKind, width int) Token {
+	start := s.Position
+	s.Position += width
+
+	return Token{
+		Span: s.span(start, s.Position),
+		Kind: kind,
+	}
+}
+
+func (s *Scanner) span(start, end int) source.ByteSpan {
+	return source.ByteSpan{
+		Start: s.Base + source.BytePos(start),
+		End:   s.Base + source.BytePos(end),
+	}
+}
+
+// runLength returns the length of the delimiter run beginning at the
+// current scanner position.
+func (s *Scanner) runLength(b byte) int {
+	pos := s.Position
+	for pos < len(s.Input) && s.Input[pos] == b {
+		pos++
+	}
+
+	return pos - s.Position
+}
