@@ -454,12 +454,29 @@ func TestBuild(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:  "link: with title",
+			name:  "link: with quoted title",
 			input: `[alt](dest "title")`,
 			want: []InlineSummary{
 				{
 					Kind:   "link",
 					Lexeme: `[alt](dest "title")`,
+					Children: []InlineSummary{
+						{
+							Kind:   "text",
+							Lexeme: "alt",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name:  "link: with paren title",
+			input: `[alt](dest (title))`,
+			want: []InlineSummary{
+				{
+					Kind:   "link",
+					Lexeme: `[alt](dest (title))`,
 					Children: []InlineSummary{
 						{
 							Kind:   "text",
