@@ -9,22 +9,21 @@ It exposes a minimal API:
 * compile Markdown into a renderable document
 * render that document to HTML
 
-### Installation
+### Installation & Usage
 
 ```sh
 go get github.com/spcameron/scribe
 ```
 
-### Basic Usage
+The public API is intentionally small.
+
+Use `HTML` when you want Markdown compiled directly into an HTML string:
 
 ```go
 html, err := scribe.HTML(md)
-if err != nil {
-  // handle error
-}
 ```
 
-### Rendering to an `io.Writer`
+Use `Compile` when you want a renderable document that can write to an `io.Writer`:
 
 ```go
 doc, err := scribe.Compile(md)
@@ -32,14 +31,18 @@ if err != nil {
   // handle error
 }
 
-if err := doc.Write(w); err != nil {
-  // handle error
-}
+err = doc.Write(w)
 ```
 
-### Using with templ
+This second form is useful when integrating with template systems, HTTP responses, static site generators, or any context where streaming output is preferable to building a string first.
+
+For example, here's how you might define a `templ` component:
 
 ```go
+package templates
+
+import "github.com/spcameron/scribe"
+
 func MarkdownHTML(doc scribe.Document) templ.Component {
   return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
     if doc == nil {
@@ -50,11 +53,32 @@ func MarkdownHTML(doc scribe.Document) templ.Component {
 }
 ```
 
+Internally, both entry points execute the same compilation pipeline. The difference is only the final output boundary.
+
 ### Notes
 
 * Output is HTML.
 * The compiler follows CommonMark-style rules with some intentional departures and simplifications.
 * The API is small by design; internal structure is not exposed.
+
+---
+
+## Motivation
+
+`scribe` began as an exercise in treating Markdown less like string manipulation and more like a small compiled language.
+
+Most Markdown parsers are judged by compatibility and convenience. Those are useful goals, but this project is aimed at a different one: making the transformation from source text to HTML mechanically understandable.
+
+The core motivation is to keep each concern in its proper layer:
+
+* source text remains immutable
+* block structure is discovered before inline semantics
+* semantic lowering happens before rendering
+* HTML generation is separated from output serialization
+
+That structure makes the compiler easier to inspect, test, and extend. It also makes the intentional departures from CommonMark explicit rather than accidental.
+
+`scribe` is not trying to be the most feature-complete Markdown implementation. It is trying to be a small, predictable compiler whose behavior can be explained from first principles without appealing to magic, folklore, or a 900-line regular expression. Civilization has suffered enough.
 
 ---
 
@@ -628,3 +652,21 @@ The benefits of this approach:
 * A representation that can be reused beyond HTML generation
 
 In short, this project optimizes for correctness, traceability, and architectural clarity over strict spec fidelity or implementation minimalism.
+
+---
+
+## Contributing
+
+This project is primarily a learning and design project, but contributions are welcome if they preserve the shape of the compiler.
+
+Good contributions should generally do one of the following:
+
+* clarify an existing parsing rule
+* add focused test coverage
+* improve diagnostics or documentation
+* implement a Markdown feature within the existing staged architecture
+* fix behavior that is inconsistent with the documented model
+
+Changes should avoid collapsing representation boundaries. In particular, block parsing should not perform inline interpretation, rendering should not re-parse source text, and scanners should remain mechanical rather than semantic.
+
+When adding behavior, prefer small tests that make the rule explicit. The goal is not merely to make an input pass, but to make the reason it passes obvious to the next person reading the code.
